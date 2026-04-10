@@ -1,23 +1,34 @@
-#' @importFrom stats model.frame model.response model.matrix pnorm qnorm
-
-glm_pois <- function(data,
+glm_negb <- function(data,
                      formula,
                      offset = log(1)){
-
   #Parameter initliazations
   ##########################
   par <- stats::model.frame(formula, data=data)
   y <- stats::model.response(par)
   X <- stats::model.matrix(formula, data=par)
   betas <- matrix(0, nrow=ncol(X),ncol=1)
+  theta <- 1
+
+  #MLE estimation of theta
+  ##########################
+  theta.MLE <- function(par, curr.mu, y, neg=F){
+    ll <- sum(log(stats::dnbinom(y, size=par, mu=curr.mu)))
+    return(ifelse(neg, -ll, ll))
+  }
 
   #IWLS algorithm model fit
   ##########################
   repeat{
     eta <- offset + X %*% betas
     pred.means <- exp(eta)
-    W <- diag(as.vector(pred.means))
-    z <- eta+(y-pred.means)/pred.means
+    theta <- stats::optim(par = theta,
+                          fn=theta.MLE,
+                          curr.mu=pred.means,
+                          method = "Brent",
+                          neg=T,
+                          y=y, lower=0, upper=1000)$par
+    W <- diag(as.vector(pred.means**2/((1/theta)*pred.means**2+pred.means)))
+    z <- eta+(y-pred.means)/((1/theta)*pred.means**2+pred.means)
     inv.Hess <- solve(t(X)%*%W%*%X)
     betas.new <- inv.Hess%*%t(X)%*%W%*%z
     ss <- sum((betas.new-betas)**2)
@@ -29,6 +40,7 @@ glm_pois <- function(data,
   }
 
   fit.dat <- data.frame(betas=betas,std.error=std.error)
+  print(theta)
 
   # Coefficient Pvals and Confidence Intervals
   #############################################
