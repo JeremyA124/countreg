@@ -1,3 +1,5 @@
+#' @importFrom stats model.frame model.response model.matrix pnorm qnorm dnbinom optim
+
 glm_negb <- function(data,
                      formula,
                      offset = log(1)){
@@ -44,24 +46,28 @@ glm_negb <- function(data,
 
   # Coefficient Pvals and Confidence Intervals
   #############################################
-  Zs <- rep(NA, times = nrow(fit.dat))
+  test.stat <- rep(NA, times = nrow(fit.dat))
   p.vals <- rep(NA, times = nrow(fit.dat))
   asymp.CI.lower <- rep(NA, times = nrow(fit.dat))
   asymp.CI.higher <- rep(NA, times = nrow(fit.dat))
   for(i in 1:nrow(fit.dat)){
     SE <- sqrt(inv.Hess[i,i])
-    Zs[i] <- fit.dat$betas[i]/SE
-    p.vals[i] <- 2*(1-stats::pnorm(abs(Zs[i])))
+    test.stat[i] <- fit.dat$betas[i]/SE
+    p.vals[i] <- 2*(1-stats::pnorm(abs(test.stat[i])))
     crit <- stats::qnorm(0.975)
     asymp.CI.lower[i] <- fit.dat$betas[i]-crit*SE
     asymp.CI.higher[i] <- fit.dat$betas[i]+crit*SE
   }
 
   fit.dat <- data.frame(fit.dat,
-                        Z=Zs,
+                        Z=test.stat,
                         asymp.CI.lower=asymp.CI.lower,
                         asymp.CI.higher=asymp.CI.higher,
                         p.vals=p.vals)
+
+  if (theta>=999){
+    warning("Theta diverges, perhaps use a Poisson regression model?")
+  }
 
   return(fit.dat)
 
