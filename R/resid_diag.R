@@ -1,4 +1,4 @@
-residDiag <- function(mod){
+resid_diag <- function(mod){
   require(patchwork)
   require(ggplot2)
 

@@ -1,4 +1,4 @@
-datPlot <- function(data){
+dat_plot <- function(data){
   require(GGally)
   require(ggplot2)
 

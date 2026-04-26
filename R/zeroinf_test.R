@@ -1,4 +1,4 @@
-zeroInfTest <- function(mod){
+zeroinf_test <- function(mod){
   if (!(class(mod) %in% c("glm_pois", "glm_pois_zero", "glm_negb", "glm_negb_zero"))){
     stop("Model class not supported")
   }
