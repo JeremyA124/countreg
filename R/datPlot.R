@@ -9,5 +9,4 @@ datPlot <- function(data){
     theme(axis.text.x = element_text(angle=60, vjust = 1, hjust=1)) +
     scale_fill_grey()+
     scale_color_grey()
-
 }
