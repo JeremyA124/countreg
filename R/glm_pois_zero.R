@@ -22,6 +22,7 @@ glm_pois_zero <- function(data,
     eta.logit <- offset + X.logit %*% alphas
     pred.logs <- exp(eta.logit)
     pred.zeros <- pred.logs/(1+pred.logs)
+    pred.zeros <- pmax(pmin(pred.zeros, 1 - 1e-100), 1e-100)
     delta <- (y == 0) * pred.zeros/(pred.zeros + (1-pred.zeros)*exp(-pred.means))
     tXW.logit <- t(X.logit * as.vector(pred.zeros*(1-pred.zeros)))
     tXWX.logit <- tXW.logit %*% X.logit
