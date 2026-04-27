@@ -1,5 +1,5 @@
 zeroinf_test <- function(mod){
-  if (!(class(mod) %in% c("glm_pois", "glm_pois_zero", "glm_negb", "glm_negb_zero"))){
+  if (!(class(mod) %in% c("glm_pois", "glm_pois_zero", "glm_negb", "glm_negb_zero", "glm_pois_GP2"))){
     stop("Model class not supported")
   }
 
@@ -9,7 +9,7 @@ zeroinf_test <- function(mod){
   obsZeros <- sum(mod$model$y == 0)
   numZeros <- rep(NA, times=R)
   for(i in 1:length(numZeros)){
-    if(class(mod) %in% c("glm_pois", "glm_pois_zero")){
+    if(class(mod) %in% c("glm_pois", "glm_pois_zero", "glm_pois_GP2")){
       simulated_y <- rpois(length(unlist(mod$fitted.values)),
                            lambda=unlist(mod$fitted.values))
     } else {
@@ -25,11 +25,11 @@ zeroinf_test <- function(mod){
   # Diagnostics Plot
   ###################
   p1 <- ggplot(data=as.data.frame(numZeros)) +
-    geom_histogram(aes(x = numZeros), color = 'black') +
+    geom_histogram(aes(x = numZeros), color = 'black', binwidth = 1) +
     geom_vline(aes(xintercept = obsZeros,
                    color = "Observed Zero Count"),
                linetype = "dotted",
-               size = 1) +
+               linewidth = 1) +
     geom_hline(yintercept = 0) +
     theme_bw() +
     labs(title = "Diagnostics for Zero-Inflation",

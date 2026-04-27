@@ -2,7 +2,7 @@ resid_diag <- function(mod){
   require(patchwork)
   require(ggplot2)
 
-  if (!(class(mod) %in% c("glm_pois", "glm_pois_zero", "glm_negb", "glm_negb_zero"))){
+  if (!(class(mod) %in% c("glm_pois", "glm_pois_zero", "glm_negb", "glm_negb_zero", "glm_pois_GP2"))){
     stop("Model class not supported")
   }
 
@@ -16,18 +16,30 @@ resid_diag <- function(mod){
     return(prob)
   }
 
-  ris.compute <- function(mod.type, y, fits, pis){
+  ppoisgp2 <- function(q, lambda, alpha, num_parm){
+    comp1 <- (lambda/(1+alpha*lambda))
+    comp2 <- ((lambda+alpha*num_parm)^(num_parm-1))
+    comp3 <- exp((-lambda*(1+alpha+num_parm))/(1+alpha*lambda))
+    prob <- comp1*comp2*comp3
+
+    return(prob)
+  }
+
+  ris.compute <- function(mod.type, y, fits, pis=0, alpha=0){
     if(mod.type=="glm_pois"){
-      ris <- ((counts-fit.vals)/sqrt(fit.vals))
-    } else {
+      ris <- ((y-fit.vals)/sqrt(fit.vals))
+    } else if(mod.type=="glm_pois_zero"){
       mu <- (1-pis)*fits
-      sigma <- sqrt(fits*(1-pis)*(1+pis*fits))
-      ris <- (y-mu)/sigma
+      var <- sqrt(fits*(1-pis)*(1+pis*fits))
+      ris <- y-mu/var
+    } else{
+      ris <- y-fits/(sqrt(fits)*(1+fits*alpha))
     }
 
     return(ris^2)
   }
 
+  #####Start here!!!!
   disp.compute <- function(mod.type, y, fits, df, theta, pis){
     if(mod.type %in% c("glm_pois", "glm_negb")){
       disp <- sum(((y-fits)/sqrt(fits^2/theta+fits))^2)/df
@@ -46,7 +58,8 @@ resid_diag <- function(mod){
      else{pis <- unlist(mod$pred.zero)}
   fit.vals <- as.vector(unlist(mod$fitted.values))
   theta <- ifelse(class(mod)%in%c("glm_negb", "glm_negb_zero"), mod$theta, 1e100)
-  ris <- ris.compute(class(mod), counts, fit.vals, pis)
+  alpha <- ifelse(class(mod)=="glm_pois_GP2", mod$alpha, 1e100)
+  ris <- ris.compute(class(mod), counts, fit.vals, pis, alpha)
 
   p1 <- ggplot(data = data.frame(fit.val=fit.vals,
                                  ri=ris)) +
@@ -102,7 +115,7 @@ resid_diag <- function(mod){
     theme_bw() +
     ggtitle(paste("Dispersion Ratio =", round(dispersion, 4)))
 
-  if(class(mod) %in% c("glm_pois", "glm_pois_zero")){
+  if(class(mod) %in% c("glm_pois", "glm_pois_zero", "glm_pois_GP2")){
     print(p1+p2/p3)
   } else {
     print(p2+p3)
