@@ -5,8 +5,8 @@ glm_negb_zero <- function(data,
 
   #MLE estimation of theta
   ##########################
-  theta.MLE <- function(par, curr.mu, y, neg=F){
-    ll <- sum(log(stats::dnbinom(y, size=par, mu=curr.mu)))
+  theta.MLE <- function(par, curr.mu, y, pis, weights, neg=F){
+    ll <- sum(weights*log(dnbinom(y, mu=curr.mu, size=par)))
     return(ifelse(neg, -ll, ll))
   }
 
@@ -21,9 +21,9 @@ glm_negb_zero <- function(data,
   alphas <- matrix(0, nrow=ncol(X.logit), ncol=1)
   pred.means <- offset
   theta <- 1
-
-  #IWLS algorithm model fit
-  ##########################
+  check.theta <- c()
+  i <- 1
+  maxrep=1000
   repeat{
     #Alpha Part
     ############
@@ -42,15 +42,18 @@ glm_negb_zero <- function(data,
     ########################
     eta <- offset + X.negb %*% betas
     pred.means <- exp(eta)
-    theta <- stats::optim(par = theta,
+    theta <- stats::optim(par=theta,
                           fn=theta.MLE,
                           curr.mu=pred.means,
-                          method = "Brent",
+                          weights=1-delta,
+                          method="Brent",
                           neg=T,
-                          y=y, lower=0, upper=1000)$par
-    tXW.negb <- t(X.negb * as.vector((1-delta)*(pred.means**2/((1/theta)*pred.means**2+pred.means))))
+                          y=y,
+                          lower=1e-4,
+                          upper=1000)$par
+    tXW.negb <- t(X.negb * as.vector((1-delta)*(pred.means**2/((pred.means**2/theta+pred.means)))))
     tXWX.negb <- tXW.negb %*% X.negb
-    z <- eta+(y-pred.means)/((1/theta)*pred.means**2+pred.means)
+    z <- eta+(y-pred.means)*(1/pred.means)
     tXWz.negb <- tXW.negb %*% z
     betas.new <- solve(tXWX.negb, tXWz.negb)
     ss2 <- sum((betas.new-betas)**2)
@@ -59,6 +62,16 @@ glm_negb_zero <- function(data,
       std.error.negb <- sqrt(diag(solve(tXWX.negb)))
       std.error.log <- sqrt(diag(solve(tXWX.logit)))
       break
+    }else{
+      check.theta[i] <- theta
+      if(i == maxrep){
+        std.error.negb <- sqrt(diag(solve(tXWX.negb)))
+        std.error.log <- sqrt(diag(solve(tXWX.logit)))
+        warning("Maximum number of iterations reached.")
+        break
+      }else{
+        i <- i+1
+      }
     }
   }
 
@@ -113,8 +126,7 @@ glm_negb_zero <- function(data,
                     call = match.call(),
                     terms = list(count=terms(formula.negb),
                                  zero=terms(formula.log)),
-                    model = list(count=list(y=y, x=X.negb),
-                                 zero=list(y-y, x=X.logit)),
+                    model = list(count=list(y=y, x=X.negb)),
                     theta = theta))
   names(fit.dat$coefficients$count) <- colnames(X.negb)
   names(fit.dat$coefficients$zero) <- colnames(X.logit)

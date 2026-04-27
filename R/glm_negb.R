@@ -29,9 +29,9 @@ glm_negb <- function(data,
                           method = "Brent",
                           neg=T,
                           y=y, lower=0, upper=1000)$par
-    tXW <- t(X * as.vector(pred.means))
+    tXW <- t(X * as.vector(pred.means^2/(pred.means^2/theta+pred.means)))
     tXWX <- tXW %*% X
-    z <- eta+(y-pred.means)/((1/theta)*pred.means**2+pred.means)
+    z <- eta+(y-pred.means)/(pred.means^2/theta+pred.means)
     tXWz <- tXW %*% z
     betas.new <- solve(tXWX, tXWz)
     ss <- sum((betas.new-betas)**2)
@@ -47,11 +47,11 @@ glm_negb <- function(data,
 
   # Coefficient Pvals and Confidence Intervals
   #############################################
-  test.stat <- rep(NA, times = length(fit.dat$coefficients))
-  p.vals <- rep(NA, times = length(fit.dat$coefficients))
-  asymp.CI.lower <- rep(NA, times = length(fit.dat$coefficients))
-  asymp.CI.higher <- rep(NA, times = length(fit.dat$coefficients))
-  for(i in 1:length(fit.dat$coefficients)){
+  test.stat <- rep(NA, times = length(fit.dat$coefficients$betas))
+  p.vals <- rep(NA, times = length(fit.dat$coefficients$betas))
+  asymp.CI.lower <- rep(NA, times = length(fit.dat$coefficients$betas))
+  asymp.CI.higher <- rep(NA, times = length(fit.dat$coefficients$betas))
+  for(i in 1:length(fit.dat$coefficients$betas)){
     SE <- std.error[i]
     test.stat[i] <- fit.dat$coefficients$betas[i]/SE
     p.vals[i] <- 2*(1-stats::pnorm(abs(test.stat[i])))
