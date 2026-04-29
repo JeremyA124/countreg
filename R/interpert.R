@@ -1,6 +1,6 @@
 interpert <- function(mod){
 
-  if (!(class(mod) %in% c("glm_pois", "glm_pois_zero", "glm_negb", "glm_negb_zero"))){
+  if (!(class(mod) %in% c("glm_pois", "glm_pois_zero", "glm_negb", "glm_negb_zero", "glm_pois_GP2"))){
     stop("Model class not supported")
   }
 
@@ -11,7 +11,7 @@ interpert <- function(mod){
   print(summary(unlist(mod$residuals)))
   cat("\n")
 
-  if(class(mod) %in% c("glm_pois", "glm_negb")){
+  if(class(mod) %in% c("glm_pois", "glm_negb", "glm_pois_GP2")){
     coef.frame <- data.frame("Estimate"=(exp(mod$coefficients$betas)-1)*100,
                              "Std.error"=mod$coefficients$std.error,
                              "Z"=mod$summary$Z,

@@ -7,22 +7,36 @@ resid_diag <- function(mod){
   }
 
   pznbinom <- function(q, mu, theta, pi) {
-    prob <- pi + (1 - pi) * pnbinom(q, size = theta, mu = mu)
-    return(prob)
+    probs <- numeric(length(q))
+    if(length(pi) == 1) pi <- rep(pi, length(q))
+    if(length(mu) == 1) mu <- rep(mu, length(q))
+    probs[q < 0] <- 0
+    idx <- q >= 0
+    probs[idx] <- pi[idx] + (1 - pi[idx]) * pnbinom(q[idx], size = theta, mu = mu[idx])
+
+    return(probs)
   }
 
   pzpois <- function(q, lambda, pi) {
-    prob <- pi + (1 - pi) * ppois(q, lambda)
-    return(prob)
+    probs <- numeric(length(q))
+    probs[q < 0] <- 0
+    idx <- q >= 0
+    probs[idx] <- pi[idx] + (1 - pi[idx]) * ppois(q[idx], lambda[idx])
+
+    return(probs)
   }
 
-  ppoisgp2 <- function(q, lambda, alpha, num_parm){
-    comp1 <- (lambda/(1+alpha*lambda))
-    comp2 <- ((lambda+alpha*num_parm)^(num_parm-1))
-    comp3 <- exp((-lambda*(1+alpha+num_parm))/(1+alpha*lambda))
-    prob <- comp1*comp2*comp3
-
-    return(prob)
+  ppoisgp2 <- function(q, lambda, alpha){
+    probs <- numeric(length(q))
+    for(j in 1:length(q)){
+      for(i in 0:q[j]){
+        comp1 <- lambda/(1+alpha*lambda)
+        comp2 <- (lambda+alpha*i)^(i-1)/factorial(i)
+        comp3 <- exp((-lambda*(1+alpha*i))/(1+alpha*lambda))
+        probs[j] <- probs[j] + comp1*comp2*comp3
+      }
+    }
+    return(probs)
   }
 
   ris.compute <- function(mod.type, y, fits, pis=0, alpha=0){
@@ -39,13 +53,14 @@ resid_diag <- function(mod){
     return(ris^2)
   }
 
-  #####Start here!!!!
-  disp.compute <- function(mod.type, y, fits, df, theta, pis){
+  disp.compute <- function(mod.type, y, fits, df, theta, pis, alpha){
     if(mod.type %in% c("glm_pois", "glm_negb")){
       disp <- sum(((y-fits)/sqrt(fits^2/theta+fits))^2)/df
-    } else{
+    } else if(mod.type %in% c("glm_pois_zero", "glm_negb_zero")){
       sigma <- sqrt((1-pis)*fits*(1+fits/theta+pis*fits))
       disp <- sum(((y-fits)/sigma)^2)/df
+    } else{
+      disp <- sum((y-fits)^2/(sqrt(fits)*(1+fits*alpha)))/df
     }
 
     return(disp)
@@ -83,10 +98,13 @@ resid_diag <- function(mod){
     } else if(class(mod)== "glm_pois_zero"){
       ai <- pzpois(counts[i]-1, lambda = fit.vals[i], pi=pis[i])
       bi <- pzpois(counts[i], lambda = fit.vals[i], pi=pis[i])
+    } else if(class(mod) == "glm_pois_GP2"){
+      ai <- ppoisgp2(counts[i]-1, lambda = fit.vals[i], alpha=alpha)
+      bi <- ppoisgp2(counts[i], lambda = fit.vals[i], alpha=alpha)
     } else if(class(mod) == "glm_negb_zero"){
       ai <- pznbinom(counts[i]-1, mu = fit.vals[i], theta=mod$theta, pi=pis[i])
       bi <- pznbinom(counts[i], mu = fit.vals[i], theta=mod$theta, pi=pis[i])
-    } else {
+    } else if(class(mod) == "glm_negb"){
       ai <- pnbinom(counts[i]-1, size=theta, mu = fit.vals[i])
       bi <- pnbinom(counts[i], size=theta, mu = fit.vals[i])
     }
@@ -100,7 +118,8 @@ resid_diag <- function(mod){
                              fit.vals,
                              mod$df.residuals,
                              theta=theta,
-                             pis=pis)
+                             pis=pis,
+                             alpha=alpha)
   p2 <- ggplot(data=data.frame(fit.val=fit.vals,
                                rqrs=rqr)) +
     geom_hline(yintercept=0, linetype="dotted")+

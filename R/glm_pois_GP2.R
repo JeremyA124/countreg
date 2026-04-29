@@ -1,36 +1,50 @@
 glm_pois_GP2 <- function(data,
-                         formula,
-                         offset = log(1)){
+                         formula){
 
-  alpha.estimate <- function(y,
-                             fits,
-                             num_obs,
-                             num_parm){
-    df <- num_obs-num_parm
-    num <- sum((abs(y-fits)/sqrt(fits)-1)*fits^(-1))
+  dgpois <- function(y, lambda, alpha){
+    probs <- numeric(length(y))
+    comp1 <- lambda/(1+alpha*lambda)
+    comp2 <- (lambda+alpha*y)^(y-1)/factorial(y)
+    comp3 <- exp((-lambda*(1+alpha*y))/(1+alpha*lambda))
+    probs <- comp1*comp2*comp3
+    return(probs)
+  }
 
-    return(num/df)
+  alpha.MLE <- function(par,
+                        y,
+                        fits,
+                        neg=F){
+    ll <- sum(log(dgpois(y, fits, par)))
+    return(ifelse(neg, -ll, ll))
   }
 
   #Parameter initliazations
   ##########################
-  par <- stats::model.frame(formula, data=data)
-  y <- stats::model.response(par)
-  X <- stats::model.matrix(formula, data=par)
+  par <- model.frame(formula, data=data)
+  y <- model.response(par)
+  X <- model.matrix(formula, data=par)
+  offset <- model.offset(par)
   betas <- matrix(0, nrow=ncol(X),ncol=1)
+  alpha <- 1
+
+  if(is.null(offset)){
+    offset <- 0
+  }
 
   #IWLS algorithm model fit
   ##########################
   repeat{
     eta <- offset + X %*% betas
     pred.means <- exp(eta)
-    alpha <- alpha.estimate(y,
-                            pred.means,
-                            nrow(data),
-                            ncol(X))
-    tXW <- t(X * as.vector(1/(1+pred.means*alpha)^2))
+    alpha <- optim(par = alpha,
+                   fn=alpha.MLE,
+                   fits=pred.means,
+                   method = "Brent",
+                   neg=T,
+                   y=y, lower=1e-4, upper=1000)$par
+    tXW <- t(X * as.vector(pred.means/(1+alpha*pred.means)^2))
     tXWX <- tXW %*% X
-    z <- eta+(y-pred.means)/(pred.means*(1+pred.means*alpha)^2)
+    z <- eta+(y-pred.means)/(pred.means)
     tXWz <- tXW %*% z
     betas.new <- solve(tXWX, tXWz)
     ss <- sum((betas.new-betas)**2)
@@ -46,15 +60,15 @@ glm_pois_GP2 <- function(data,
 
   # Coefficient Pvals and Confidence Intervals
   #############################################
-  test.stat <- rep(NA, times = length(fit.dat$coefficients))
-  p.vals <- rep(NA, times = length(fit.dat$coefficients))
-  asymp.CI.lower <- rep(NA, times = length(fit.dat$coefficients))
-  asymp.CI.higher <- rep(NA, times = length(fit.dat$coefficients))
-  for(i in 1:length(fit.dat$coefficients)){
+  test.stat <- rep(NA, times = length(fit.dat$coefficients$betas))
+  p.vals <- rep(NA, times = length(fit.dat$coefficients$betas))
+  asymp.CI.lower <- rep(NA, times = length(fit.dat$coefficients$betas))
+  asymp.CI.higher <- rep(NA, times = length(fit.dat$coefficients$betas))
+  for(i in 1:length(fit.dat$coefficients$betas)){
     SE <- std.error[i]
     test.stat[i] <- fit.dat$coefficients$betas[i]/SE
-    p.vals[i] <- 2*(1-stats::pnorm(abs(test.stat[i])))
-    crit <- stats::qnorm(0.975)
+    p.vals[i] <- 2*(1-pnorm(abs(test.stat[i])))
+    crit <- qnorm(0.975)
     asymp.CI.lower[i] <- fit.dat$coefficients$betas[i]-crit*SE
     asymp.CI.higher[i] <- fit.dat$coefficients$betas[i]+crit*SE
   }
