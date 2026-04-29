@@ -1,7 +1,6 @@
 glm_negb_zero <- function(data,
                           formula.negb,
-                          formula.log,
-                          offset = log(1)){
+                          formula.log){
 
   #MLE estimation of theta
   ##########################
@@ -17,12 +16,20 @@ glm_negb_zero <- function(data,
   y <- model.response(par1)
   X.negb <- model.matrix(formula.negb, data=par1)
   X.logit <- model.matrix(formula.log, data=par2)
+  offset <- as.vector(model.offset(par1))
   betas <- matrix(0, nrow=ncol(X.negb), ncol=1)
   alphas <- matrix(0, nrow=ncol(X.logit), ncol=1)
-  pred.means <- offset
+  pred.means <- 1
   theta <- 1
   i <- 1
   maxrep=1000
+
+  if(is.null(offset)){
+    offset <- 0
+  } else{
+    offset <- log(offset)
+  }
+
   repeat{
     #Alpha Part
     ############
@@ -32,7 +39,7 @@ glm_negb_zero <- function(data,
     delta <- (y == 0) * pred.zeros/(pred.zeros + (1-pred.zeros)*((theta/(pred.means+theta))**theta))
     tXW.logit <- t(X.logit * as.vector(pred.zeros*(1-pred.zeros)))
     tXWX.logit <- tXW.logit %*% X.logit
-    z.logit <- eta.logit + (delta-pred.zeros)/(pred.zeros*(1-pred.zeros))
+    z.logit <- (eta.logit) + (delta-pred.zeros)/(pred.zeros*(1-pred.zeros))
     tXWz.logit <- tXW.logit %*% z.logit
     new.alphas <- solve(tXWX.logit, tXWz.logit)
     ss1 <- sum((new.alphas-alphas)**2)
@@ -52,7 +59,7 @@ glm_negb_zero <- function(data,
                           upper=1000)$par
     tXW.negb <- t(X.negb * as.vector((1-delta)*(pred.means**2/((pred.means**2/theta+pred.means)))))
     tXWX.negb <- tXW.negb %*% X.negb
-    z <- eta+(y-pred.means)*(1/pred.means)
+    z <- (eta)+(y-pred.means)*(1/pred.means)
     tXWz.negb <- tXW.negb %*% z
     betas.new <- solve(tXWX.negb, tXWz.negb)
     ss2 <- sum((betas.new-betas)**2)

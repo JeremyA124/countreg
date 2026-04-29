@@ -2,7 +2,6 @@
 
 glm_pois <- function(data,
                      formula,
-                     offset = log(1),
                      quasi = F){
 
   #Parameter initialization
@@ -10,7 +9,14 @@ glm_pois <- function(data,
   par <- model.frame(formula, data=data)
   y <- model.response(par)
   X <- model.matrix(formula, data=par)
+  offset <- as.vector(model.offset(par))
   betas <- matrix(0, nrow=ncol(X),ncol=1)
+
+  if(is.null(offset)){
+    offset <- 0
+  } else{
+    offset <- log(offset)
+  }
 
   #IWLS algorithm model fit
   ##########################
@@ -19,7 +25,7 @@ glm_pois <- function(data,
     pred.means <- exp(eta)
     tXW <- t(X * as.vector(pred.means))
     tXWX <- tXW %*% X
-    z <- eta+(y-pred.means)/pred.means
+    z <- (eta)+(y-pred.means)/pred.means
     tXWz <- tXW %*% z
     betas.new <- solve(tXWX, tXWz)
     ss <- sum((betas.new-betas)**2)

@@ -8,8 +8,15 @@ glm_negb <- function(data,
   par <- model.frame(formula, data=data)
   y <- model.response(par)
   X <- model.matrix(formula, data=par)
+  offset <- as.vector(model.offset(par))
   betas <- matrix(0, nrow=ncol(X),ncol=1)
   theta <- 1
+
+  if(is.null(offset)){
+    offset <- 0
+  } else{
+    offset <- log(offset)
+  }
 
   #MLE estimation of theta
   ##########################
@@ -31,7 +38,7 @@ glm_negb <- function(data,
                    y=y, lower=0, upper=1000)$par
     tXW <- t(X * as.vector(pred.means^2/(pred.means^2/theta+pred.means)))
     tXWX <- tXW %*% X
-    z <- eta+(y-pred.means)/(pred.means)
+    z <- (eta)+(y-pred.means)/pred.means
     tXWz <- tXW %*% z
     betas.new <- solve(tXWX, tXWz)
     ss <- sum((betas.new-betas)**2)
