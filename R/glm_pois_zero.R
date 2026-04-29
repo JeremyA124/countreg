@@ -1,6 +1,12 @@
+#' @importFrom stats model.frame model.response model.matrix model.offset terms qnorm pnorm solve
+
 glm_pois_zero <- function(data,
                           formula.pois,
                           formula.log){
+
+  if(any(is.na(data)) | any(is.null(data))){
+    warning("NAs or Nulls in data set, NAs or Nulls ignored.")
+  }
 
   #Parameter initliazations
   ##########################
@@ -81,7 +87,7 @@ glm_pois_zero <- function(data,
   for(i in 1:length(fit.dat$coefficients$zero)){
     SE <- std.error.log[i]
     test.stat.alpha[i] <- fit.dat$coefficients$zero[i]/SE
-    p.vals.alpha[i] <- 2*(1-pnorm(abs(test.stat[i])))
+    p.vals.alpha[i] <- 2*(1-pnorm(abs(test.stat.alpha[i])))
     crit <- qnorm(0.975)
     asymp.CI.lower.alpha[i] <- fit.dat$coefficients$zero[i]-crit*SE
     asymp.CI.higher.alpha[i] <- fit.dat$coefficients$zero[i]+crit*SE

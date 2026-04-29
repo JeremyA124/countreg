@@ -1,6 +1,12 @@
+#' @importFrom stats model.frame model.response model.matrix model.offset terms optim dnbinom qnorm pnorm solve
+
 glm_negb_zero <- function(data,
                           formula.negb,
                           formula.log){
+
+  if(any(is.na(data)) | any(is.null(data))){
+    warning("NAs or Nulls in data set, NAs or Nulls ignored.")
+  }
 
   #MLE estimation of theta
   ##########################
@@ -107,7 +113,7 @@ glm_negb_zero <- function(data,
   for(i in 1:length(fit.dat$coefficients$zero)){
     SE <- std.error.log[i]
     test.stat.alpha[i] <- fit.dat$coefficients$zero[i]/SE
-    p.vals.alpha[i] <- 2*(1-pnorm(abs(test.stat[i])))
+    p.vals.alpha[i] <- 2*(1-pnorm(abs(test.stat.alpha[i])))
     crit <- qnorm(0.975)
     asymp.CI.lower.alpha[i] <- fit.dat$coefficients$zero[i]-crit*SE
     asymp.CI.higher.alpha[i] <- fit.dat$coefficients$zero[i]+crit*SE
@@ -126,7 +132,7 @@ glm_negb_zero <- function(data,
                                              asymp.CI.higher=asymp.CI.higher.alpha,
                                              p.vals=p.vals.alpha)),
                     fitted.values = as.list((1-pred.zeros)*pred.means),
-                    df.residuals = nrow(data)-length(betas)-length(alphas),
+                    df.residuals = nrow(data)-length(betas)-length(alphas)-1,
                     pred.zero = as.list(pred.zeros),
                     call = match.call(),
                     terms = list(count=terms(formula.negb),
