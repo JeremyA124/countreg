@@ -11,9 +11,14 @@ Imports:
     ggplot2
 Suggests:
     pscl,
-    AER
+    AER,
+    knitr,
+    rmarkdown,
+    testthat (>= 3.0.0)
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
 URL: https://github.com/JeremyA124/countreg
 BugReports: https://github.com/JeremyA124/countreg/issues
+VignetteBuilder: knitr
+Config/testthat/edition: 3

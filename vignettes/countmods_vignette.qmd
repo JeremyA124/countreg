@@ -1,0 +1,346 @@
+---
+title: "Example Analyses using countmods"
+author: "Jeremy Artiga"
+editor: visual
+bibliography: countmods_vignette.bib  # Name of bib file in the same folder
+bibliographystyle: apa                   # Bibliography style
+execute:
+  warning: false
+  message: false
+format:
+  pdf:
+    documentclass: article
+    number-sections: TRUE
+    reference-section-title: "References" 
+    classoption: oneside   # avoids double-sided layout
+    geometry: "paperheight=500mm, top=2cm, bottom=2cm, left=2cm, right=2cm"
+    code-fold: TRUE
+    code-line-numbers: TRUE
+    cap-location: top 
+    include-in-header:
+      - text: |
+          \usepackage{amsmath}
+          \usepackage[dvipsnames]{xcolor}
+          \usepackage[shortlabels]{enumitem}
+          \usepackage{parskip}
+          \usepackage{hyperref}
+          \usepackage{geometry}
+          \usepackage{float}
+---
+
+## Introduction
+
+In this quarto document, I will analyze a variety of data sets with emphasis on showcasing the `countmods` package.
+
+**AUTHORS NOTE**: The Liklihood Ratio Test has a bug where p-values are calculated incorrectly, it has been fixed in the latest version of the package.
+
+```{r}
+#| size: 'scriptsize'
+#| message: false
+#| warning: false
+set.seed(1717)
+library(tidyverse)
+library(countmods)
+```
+
+## Armadillos Dataset
+
+**Question:** How does Age impact armadillos hunting ability?
+
+I will start with the Armadillos dataset [@Mcmillan01]. Below, I load in the dataset for Armadillos:
+
+```{r}
+#| size: 'scriptsize'
+#| message: false
+#| warning: false
+arma.dat <- read_csv("McMillanAcheArmadillo.csv")
+```
+
+We can begin by summarizing the data using `dat_plot()`.
+
+```{r}
+#| label: fig-arma-scat
+#| size: 'scriptsize'
+#| message: false
+#| warning: false
+#| fig-pos: H
+#| fig-cap: "Scatter plot matrix of Armadillos data"
+#| fig-height: 3
+#| fig-width: 5.2
+#| fig-align: 'center'
+dat_plot(arma.dat)
+```
+
+It appears as if Age has a dimminishing relationship with Armadillos.
+
+Now, we can fit the models using `glm_pois()` and `glm_negb()`. Since the amount of armadillos captured may depends on the number of treks, we will offset the models by `Treks`
+
+```{r}
+#| size: 'scriptsize'
+#| message: false
+#| warning: false
+mod1 <- glm_pois(data=arma.dat, Armadillos~Age+I(Age^2), offsetparm = "Treks")
+mod2 <- glm_negb(data=arma.dat, Armadillos~Age+I(Age^2), offsetparm = "Treks")
+```
+
+Using `resid_diag()`, we can perform diagnostics on the model fits using randomized quantile residuals.
+
+```{r}
+#| label: fig-arma-resid
+#| size: 'scriptsize'
+#| message: false
+#| warning: false
+#| fig-pos: H
+#| fig-cap: "Resiudal Diagnostics of Poisson and Negative Binomial Models"
+#| fig-height: 3
+#| fig-width: 5.2
+#| fig-align: 'center'
+resid_diag(mod1)
+resid_diag(mod2)
+```
+
+As seen by the plots, we appear to have some over-dispersion in the data as seen in the randomized quantile residulas in the poisson model. The negative binomial model has a lower dispersion ration than the poisson model, so it seems to be a better fit.
+
+To investigate further, we can use `mod_compare()` to compare model fits.
+
+```{r}
+#| size: 'scriptsize'
+#| message: false
+#| warning: false
+mod_compare(mod1, mod2)
+```
+
+Intrestingly enough, the poisson model seems to be a better fit than the negative binomial model by most metrics in `mod_compare()` (NOTE: ignore the liklihood ratio test, the models are not nested, so the statistic isn't valid). Lets try a quasi poisson model aswell!
+
+```{r}
+#| size: 'scriptsize'
+#| message: false
+#| warning: false
+mod3 <- glm_pois(data=arma.dat, 
+                 Armadillos~Age+I(Age^2), 
+                 offsetparm = "Treks", 
+                 quasi = T)
+```
+
+and perform diagnostics
+
+```{r}
+#| label: fig-resid-scat
+#| size: 'scriptsize'
+#| message: false
+#| warning: false
+#| fig-pos: H
+#| fig-cap: "Residual Diagnostics of Quasi-Poisson Model"
+#| fig-height: 3
+#| fig-width: 5.2
+resid_diag(mod3)
+
+```
+
+```{r}
+#| size: 'scriptsize'
+#| message: false
+#| warning: false
+mod_compare(mod1, mod1)
+```
+
+not much of a difference. For all intents and purposes, let use both inital models.
+
+Now, we can get a summary of the data, lets use `interpert()` to do this!
+
+```{r}
+#| size: 'scriptsize'
+#| message: false
+#| warning: false
+interpret(mod1)
+interpret(mod2)
+```
+
+As we can see, we have a 24% increase in armadillos as age increases a single unit with the poisson model and a 29 increase in armadillos as age increase a single unit with the negative binomial.
+
+Any further analyses should be done using `emmeans` or other supplementary packages.
+
+## Bio Chemists Dataset
+
+**Question:** How do some factors (such as kids, phd prestige, or martial status) impact a bio chemist's ability to publish articles?
+
+Now, we will use the `bioChemists` [@bio] dataset from the `pscl` [@pscl] package, as this dataset is known for being zero-inflated. Below, I load in the dataset:
+
+```{r}
+#| size: 'scriptsize'
+#| message: false
+#| warning: false
+utils::data(bioChemists, package = "pscl")
+```
+
+and we can do a quick plot summary with it:
+
+```{r}
+#| label: fig-bio-scat
+#| size: 'scriptsize'
+#| message: false
+#| warning: false
+#| fig-pos: H
+#| fig-cap: "Scatterplot Matrix of bioChemists Data"
+#| fig-height: 3
+#| fig-width: 5.2
+#| fig-align: 'center'
+dat_plot(bioChemists)
+```
+
+Interesting! Now lets fit some models using `glm_pois()`! This dataset primarily focuses on the relations between the amount of articles produced with by bio chemists and factors in the data set, such as having kids under 5 (`kid5`), phd quality (`phd`), and martial status (`mar`).
+
+```{r}
+#| size: 'scriptsize'
+#| message: false
+#| warning: false
+mod1 <- glm_pois(data=bioChemists, art~kid5+phd+mar)
+```
+
+Now, we can do some diagnostics with `resid_diag()`.
+
+```{r}
+#| label: fig-bio-resid
+#| size: 'scriptsize'
+#| message: false
+#| warning: false
+#| fig-pos: H
+#| fig-cap: "Residual Diagnostics of Poisson Model for biochemists"
+#| fig-height: 3
+#| fig-width: 5.2
+resid_diag(mod1)
+```
+
+Some bad signs with the way those residuals are acting!
+
+We know that the data is zero inflated, so lets run `zeroinf_test()` to check!
+
+```{r}
+#| label: fig-bio-zero
+#| size: 'scriptsize'
+#| message: false
+#| warning: false
+#| fig-pos: H
+#| fig-cap: "Zero-Inflation Test bioChemists Data"
+#| fig-height: 3
+#| fig-width: 5.2
+zeroinf_test(mod1)
+```
+
+As we can see the data is zero-inflated, Yikes!
+
+Luckily, we have options. We can use `glm_negb_zero()` to handle the overdispersion. Below, I fit a zero inflated model using `glm_negb_zero()`: We know that the data is zero inflated, so lets run `zeroinf_test()` to check! For the logistic part, we will use `kid5`.
+
+```{r}
+#| size: 'scriptsize'
+#| message: false
+#| warning: false
+mod.zero <- glm_pois_zero(data=bioChemists, art~kid5+phd+factor(mar), art~kid5)
+mod.zero.negb <- glm_negb_zero(data=bioChemists, art~kid5+phd+factor(mar), art~kid5)
+```
+
+Now the zero should be handled, lets do some diagnostics with `resid_diag()`!
+
+```{r}
+#| label: fig-bio-residzero
+#| size: 'scriptsize'
+#| message: false
+#| warning: false
+#| fig-pos: H
+#| fig-cap: "Residual Diagnostics of Zero-Inflated Models"
+#| fig-height: 3
+#| fig-width: 5.2
+resid_diag(mod.zero)
+resid_diag(mod.zero.negb)
+```
+
+Since the zero-inflated negative binomial has less dispersion, we will use this model! We can now interpret the model with `interpret()`
+
+```{r}
+#| size: 'scriptsize'
+#| message: false
+#| warning: false
+interpret(mod.zero.negb)
+```
+
+As we can see, we appear to have a -10% chnage in articles published for each kid under 5 a biochemist, 9% increase with each increase in phd prestige index, and a 21% increase if a bio chemist is married
+
+Any further analyses should be done using `emmeans` or other supplementary packages.
+
+## Insurance Claims
+
+**Question:** How is the frequency of insurance claims affected by the number of policies taken before hand?
+
+Now, we will use the `insur_claim` [@ins] dataset, the original dataset has 15 predictors for the model, but we will only use the first 5 for the analysis (since `dat_plot()` maxes out at 15 variables). Below, I load in the dataset and truncate it [@tidyverse]:
+
+```{r}
+#| size: 'scriptsize'
+#| message: false
+#| warning: false
+claim.dat <- read_csv("insur_claim.csv") |>
+  select(y,x1,x2,x3,x4,x5)
+```
+
+Here is the following predictor annotations list:
+
+-   `x1`: Kids to pickup
+
+-   `x2`: Time to drive
+
+-   `x3`: Car use (0=private, 1 =business)
+
+-   `x4`: Number of policies before current policy
+
+-   `x5`: Car color (0=non-red, 1=red)
+
+and I use `dat_plot()` to generate a scatter plot matrix:
+
+```{r}
+#| label: fig-ins-scat
+#| size: 'scriptsize'
+#| message: false
+#| warning: false
+#| fig-pos: H
+#| fig-cap: "Scatterplot Matrix of Insurance Data"
+#| fig-height: 3
+#| fig-width: 5.2
+dat_plot(claim.dat)
+```
+
+We can't really see much here, we're going to have to use a Generalized Poisson Model (GP2) using the `glm_pois_GP2()` function, we'll also keep the model simple by adding all predictors. Below, I fit a generalized poisson model:
+
+```{r}
+#| size: 'scriptsize'
+#| message: false
+#| warning: false
+mod.claim <- glm_pois_GP2(data=claim.dat, y~x1+x2+factor(x3)+x4+factor(x5))
+```
+
+Now, we check the model fit using `resid_diag()`.
+
+```{r}
+#| label: fig-ins-resid
+#| size: 'scriptsize'
+#| message: false
+#| warning: false
+#| fig-pos: H
+#| fig-cap: "Residual Diagnostics of Insurance Model."
+#| fig-height: 3
+#| fig-width: 5.2
+resid_diag(mod.claim)
+```
+
+While we do have an exponential pattern with the residual (implying that we might need to fit a gamma regression model), we will still proceed with the analysis as if the residuals were in order.
+
+Below, I use `interpert() to print a summary of the model.`
+
+```{r}
+#| size: 'scriptsize'
+#| message: false
+#| warning: false
+interpret(mod.claim)
+```
+
+Based on the model summary provided, the number of filed insurance claims seems to go down -4.86% for every additional policy that was taken out before the current policy!
+
+Any further analyses should be done using `emmeans` or other supplementary packages.
