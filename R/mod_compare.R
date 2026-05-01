@@ -183,7 +183,7 @@ mod_compare <- function(mod1, mod2, print.results=T){
   }
 
   chi <- dchisq(q, 1)
-  p_val <- pchisq(q, 1)
+  p_val <- 1-pchisq(q, 1)
 
   if(print.results){
     cat("---------------------------\n")
