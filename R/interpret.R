@@ -1,4 +1,26 @@
+#' Interpretation of Count Regression Models
+#'
+#' \code{interpret} is used to print a summarization of the fitted models within
+#' the \code{\link{countmods}} package.
+#'
+#' @param mod Models of classes built by \code{countmods}
+#'
+#' @details
+#' \code{intrepret} converts all coefficient approximations into % change units, usually
+#' through the following conversion:
+#' \deqn{\text{% Change}=(e^\beta-1)\times 100}
+#' It will print output for both the count model and logistic model if \code{mod} is
+#' of class \code{glm_pois_zero} or \code{glm_negb_zero}.
+#'
+#' Examples listed in \code{\link{glm_pois}}, \code{\link{glm_negb}}, \code{\link{glm_pois_GP2}},
+#' \code{\link{glm_pois_zero}}, and \code{\link{glm_negb_zero}}.
+#'
+#' @author
+#' Implementation of \code{interpret} was authored by Jeremy Artiga, with aid
+#' from William Cipolli at Colgate University.
+#'
 #' @importFrom utils head
+#' @export
 
 interpret <- function(mod){
 

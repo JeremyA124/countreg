@@ -1,3 +1,51 @@
+#' Comparison of Model Fit
+#'
+#' \code{mod_compare} is used to compare models from \code{\link{countmods}} for
+#' goodness-of-fit using various model fit metrics
+#'
+#' @param mod1 First Model of classes built by \code{\link{countmods}}
+#' @param mod2 Second Model of classes built by \code{\link{countmods}}
+#' @param print.results T or F depending on user prefrence for result display. It
+#' is recommended to keep this parameter as T.
+#'
+#' @details
+#' \code{mod_compare} utilizes AIC, BIC, Likelihood, and McFadden's \eqn{R^2} as
+#' metric of goodness-of-fit model comparisons. This may also be used as a generic
+#' function for computation of these statistics by passing the same model to \code{mod1}
+#' and \code{mod2}.
+#'
+#' A likelihood ratio test is also carried out. Twice the difference of likelihoods
+#' is compared to the Chi-squared distribution.
+#'
+#' The user may also have the option of returning just the statistics related to
+#' standard model comparison (AIC, BIC, Likelihood, McFadden) without displaying results
+#' using \code{print.results}. Evaluating \code{print.results} as FALSE will compute the
+#' likelihood ratio test, but will not display results.
+#'
+#' @returns List object that contains AICs, BICs, Likelihoods, and McFadden's \eqn{R^2}
+#' for both models
+#'
+#' @author
+#' Implementation of \code{mod_compare} was authored by Jeremy Artiga, with aid
+#' from William Cipolli at Colgate University.
+#'
+#' @references
+#'
+#' Deb, P., & Trivedi, P. K. (1997).
+#' Demand for medical care by the elderly: A finite mixture approach.
+#' Journal of Applied Econometrics, 12(3), 313--336.
+#'
+#' @examples
+#' ## Example using NMES1988 dataset from AER (Deb & Trivedi, 1997)
+#' utils::data(NMES1988, package = "AER")
+#' mod1 <- glm_pois(data=NMES1988, visits~factor(chronic)+factor(health))
+#' mod2 <- glm_negb(data=NMES1988, visits~factor(chronic)+factor(health))
+#'
+#' comp.stats <- mod_compare(mod1, mod2)
+#'
+#' ## Or as a generic function for statistics
+#' gen.stats <- mod_compare(mod1, mod1, print.results=F)
+#'
 #' @importFrom stats dpois dnbinom pchisq dchisq update formula terms model.frame model.response model.matrix model.offset
 #' @importFrom VGAM pgenpois2
 

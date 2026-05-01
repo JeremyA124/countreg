@@ -1,8 +1,91 @@
+#' Generalized Linear Model: Zero-Inflated Negative Binomial Regression
+#'
+#' \code{glm_pois_zero} is used to fit the zero-inflated negative binomial generalized linear model, specified
+#' by \code{formula}, a symbolic representation of the linear predictor.
+#'
+#' @param data A dataframe object that contains vectors specified by the symbolic
+#' representation of \code{formula}
+#' @param formula.negb A symbolic representation of the linear predictor used to fit the
+#' poisson model
+#' @param formula.log A symbolic representation of the linear predictor used to fit the
+#' logistic model
+#' @param offsetparm String representation of a dataframe column which applies an offset
+#' to the linear predictor on __BOTH__ models.
+#'
+#' @details
+#' A zero-inflated negative binomia generalized linear model is a statistical model that fits count-based
+#' data by utilization of an IRWLS algorithm that makes proper adjustments to \eqn{\beta} of the
+#' poisson model and \eqn{\alpha} of the logistic model until convergence.
+#'
+#' A dispersion parameter \eqn{\theta} is also approximated within the algorithmic fit as
+#' a dispersion control. It's typically fitted towards handling over-dispersion, but may
+#' handle some cases of under-dispersion.
+#'
+#' The logistic model is spesified by:
+#' \deqn{log(\frac{P(y_i=0)}{1-P(y_i=0)})=\alpha_0+\alpha_1 x_1 + \cdots + \alpha_{n-1} x_{n-1}}
+#' Which models the probablity of observing structural zeros.
+#'
+#' NOTE: THE \code{offsetparm}'s offset is logged before being fit, be cautious when entering offset
+#' data
+#'
+#' @returns
+#' \code{glm_negb_zero} returns an S3 object of class \code{"glm_negb_zero"}, it is not inherited from
+#' classes \code{"lm"} or \code{"glm"}. Functions specified for these packages will not work
+#' with a \code{"glm_negb_zero"} object.
+#'
+#' The function \code{\link{interpret}} can be used to obtain and print a summary of
+#' results.
+#'
+#' The \code{"$"} syntax can be used to extract various useful features/information
+#' of the output values from the initial model fit. Many of the features included in
+#' the \code{"glm_negb_zero"} object are layered in lists, any computations utlilizing these
+#' features should be unlisted first using \code{\link{unlist}}.
+#'
+#' An object of class \code{"glm_negb_zero"} contains at least the following components:
+#'
+#' \item{coefficients}{List containing estimated coefficients for poisson/logistic models
+#'  and their standard errors}
+#' \item{residuals}{Working residuals for the poisson model computed in the final iteration of the IRWLS fit}
+#' \item{summary}{List containing statistical inference and features of poisson/logistic model fit}
+#' \item{fitted.values}{Fitted mean values (i.e., \eqn{\lambda}) obtained by exponentiation of the poisson linear predictor}
+#' \item{pred.zero}{Fitted values (i.e., \eqn{\alpha}) obtained by exponentiation of the logistic linear predictor}
+#' \item{df.residual}{Degrees of freedom for residuals}
+#' \item{call}{The matched call}
+#' \item{terms}{The \code{\link{terms}} object used}
+#' \item{model}{List containing the response and design matrices}
+#' \item{theta}{\eqn{\theta} approximated as dispersion factor}
+#'
+#' @author
+#' Implementation of \code{glm_negb_zero} was authored by Jeremy Artiga, with aid
+#' from William Cipolli at Colgate University.
+#'
+#' @references
+#' Deb, P., & Trivedi, P. K. (1997).
+#' Demand for medical care by the elderly: A finite mixture approach.
+#' Journal of Applied Econometrics, 12(3), 313--336.
+#'
+#' @examples
+#' ## Example using NMES1988 dataset from AER (Deb & Trivedi, 1997)
+#' utils::data(NMES1988, package = "AER")
+#'
+#' mod <- glm_negb_zero(data=NMES1988, visits~factor(health), visits~factor(health))
+#'
+#' ## With offset
+#' mod <- glm_negb_zero(data=NMES1988, visits~factor(health), visits~factor(health), offsetparm="age")
+#'
+#' ##Extracting features/information
+#' interpret(mod)
+#' betas <- mod$coefficients$count
+#' std.err <- mod$coefficients$std.error.count
+#' zeros <- mod$pred.zero
+#'
 #' @importFrom stats model.frame model.response model.matrix model.offset terms optim dnbinom qnorm pnorm
+#' @export
 
 glm_negb_zero <- function(data,
                           formula.negb,
-                          formula.log){
+                          formula.log,
+                          offsetparm = NULL){
 
   if(any(is.na(data)) | any(is.null(data))){
     warning("NAs or Nulls in data set, NAs or Nulls ignored.")
@@ -22,7 +105,6 @@ glm_negb_zero <- function(data,
   y <- model.response(par1)
   X.negb <- model.matrix(formula.negb, data=par1)
   X.logit <- model.matrix(formula.log, data=par2)
-  offset <- as.vector(model.offset(par1))
   betas <- matrix(0, nrow=ncol(X.negb), ncol=1)
   alphas <- matrix(0, nrow=ncol(X.logit), ncol=1)
   pred.means <- 1
@@ -30,22 +112,23 @@ glm_negb_zero <- function(data,
   i <- 1
   maxrep=1000
 
-  if(is.null(offset)){
+  if(is.null(offsetparm)){
     offset <- 0
   } else{
-    offset <- log(offset)
+    offset <- log(data[[offsetparm]])
   }
 
   repeat{
     #Alpha Part
     ############
     eta.logit <- offset + X.logit %*% alphas
-    pred.logs <- exp(eta.logit)
+    eta.logit.lin <- X.logit %*% alphas
+    pred.logs <- exp(pmin(eta.logit, 700))
     pred.zeros <- pred.logs/(1+pred.logs)
     delta <- (y == 0) * pred.zeros/(pred.zeros + (1-pred.zeros)*((theta/(pred.means+theta))**theta))
     tXW.logit <- t(X.logit * as.vector(pred.zeros*(1-pred.zeros)))
     tXWX.logit <- tXW.logit %*% X.logit
-    z.logit <- (eta.logit) + (delta-pred.zeros)/(pred.zeros*(1-pred.zeros))
+    z.logit <- (eta.logit.lin) + (delta-pred.zeros)/(pred.zeros*(1-pred.zeros))
     tXWz.logit <- tXW.logit %*% z.logit
     new.alphas <- solve(tXWX.logit, tXWz.logit)
     ss1 <- sum((new.alphas-alphas)**2)
@@ -53,7 +136,8 @@ glm_negb_zero <- function(data,
     #Negative Binomial Part
     ########################
     eta <- offset + X.negb %*% betas
-    pred.means <- exp(eta)
+    eta.lin <- X.negb %*% betas
+    pred.means <- exp(pmin(eta, 700))
     theta <- optim(par=theta,
                           fn=theta.MLE,
                           curr.mu=pred.means,
@@ -65,7 +149,7 @@ glm_negb_zero <- function(data,
                           upper=1000)$par
     tXW.negb <- t(X.negb * as.vector((1-delta)*(pred.means**2/((pred.means**2/theta+pred.means)))))
     tXWX.negb <- tXW.negb %*% X.negb
-    z <- (eta)+(y-pred.means)*(1/pred.means)
+    z <- (eta.lin)+(y-pred.means)*(1/pred.means)
     tXWz.negb <- tXW.negb %*% z
     betas.new <- solve(tXWX.negb, tXWz.negb)
     ss2 <- sum((betas.new-betas)**2)

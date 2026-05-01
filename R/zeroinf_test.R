@@ -1,5 +1,37 @@
+#' Test for Zero-Inflation of Count Regression Models
+#'
+#' \code{zeroinf_test} is used to test zero inflation within the \code{\link{countmods}} package.
+#'
+#' @param mod Models of classes built by \code{\link{countmods}}
+#'
+#' @details
+#' \code{zeroinf_test} tests models in \code{\link{countmods}} through the simulation of the
+#' expected response and counting the number of zeros found in the data. A distribution is
+#' built through the simulations of the zero counts and the emperical zero count is plotted
+#' on top of the distribution.
+#' A right tailed emperical test is used to gauge the need for a zero-inflated model.
+#'
+#' \code{zeroinf_test} provides the interpretation automatically.
+#'
+#' @author
+#' Implementation of \code{zeroinf_test} was authored by Jeremy Artiga, with aid
+#' from William Cipolli at Colgate University.
+#'
+#' @references
+#' Long, J. S. (1997).
+#' Regression Models for Categorical and Limited Dependent Variables.
+#' Sage Publications.
+#'
+#' @examples
+#' ## Example using biochemists dataset from pscl (Campbell & Mahon, 1974)
+#' utils::data(bioChemists, package = "pscl")
+#' mod <- glm_pois(data=df, kid5~phd)
+#'
+#' zeroinf_test(mod)
+#'
 #' @importFrom stats rpois rnbinom
 #' @importFrom ggplot2 ggplot geom_histogram geom_vline geom_hline theme_bw labs theme
+#' @export
 
 zeroinf_test <- function(mod){
   if (!(class(mod) %in% c("glm_pois", "glm_pois_zero", "glm_negb", "glm_negb_zero", "glm_pois_GP2"))){

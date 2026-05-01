@@ -8,6 +8,8 @@
 #' @param formula A symbolic represenation of the linear predictor used to fit the
 #' model
 #' @param quasi T or F if a quasi dispersion parameter is added to the model.
+#' @param offsetparm String representation of a dataframe column which applies an offset
+#' to the linear predictor
 #'
 #' @details
 #' A poisson generalized linear model is a statistical model that fits count-based
@@ -18,6 +20,9 @@
 #' standard poisson model with a dispersion parameter, \eqn{\phi}, that's added into
 #' the variance structure and subsequent computations which utilize variance.
 #' \eqn{\phi < 1} indicates under dispersion while \eqn{\phi > 1} indicates overdispersion.
+#'
+#' NOTE: THE \code{offsetparm}'s offset is logged before being fit, be cautious when entering offset
+#' data
 #'
 #' @returns
 #' \code{glm_pois} returns an S3 object of class \code{"glm_pois"}, it is not inherited from
@@ -48,19 +53,32 @@
 #' Implementation of \code{glm_pois} was authored by Jeremy Artiga, with aid
 #' from William Cipolli at Colgate University.
 #'
+#' @references
+#' U.S. Department of Agriculture (1940s).
+#' Insecticide effectiveness experiment data.
+#'
 #' @examples
 #' ## Basic fit
 #' y <- rpois(10, 2)
-#' x1 <- rnorm(n)
-#' x2 <- rnorm(n)
+#' x1 <- rnorm(10)
+#' x2 <- rnorm(10)
 #' df <- data.frame(y=y,x1=x1, x2=x2)
 #' mod <- glm_pois(data=df, y~x1+x2)
 #'
 #' ## With quasi
 #' mod <- glm_pois(data-df, y~x1+x2, quasi=T)
 #'
+#' # With offset
+#' mod <- glm_pois(data=df, y~x1+x2, offsetparm="x2")
+#'
+#' ## Example with InsectSprays dataset (U.S. Department of Agriculture insecticide experiment, 1940s)
+#' data(InsectSprays)
+#' utils::data(InsectSprays)
+#' mod2 <- glm_pois(data=df, count~factor(spray))
+#'
 #' ##Extracting features/information
 #' interpret(mod)
+#' interpret(mod2)
 #' betas <- mod$coefficients$betas
 #' std.err <- mod$coefficients$std.error
 #' disp <- mod$dispersion
@@ -71,7 +89,7 @@
 glm_pois <- function(data,
                      formula,
                      quasi = F,
-                     offset.n = NULL){
+                     offsetparm = NULL){
 
   if(any(is.na(data)) | any(is.null(data))){
     warning("NAs or Nulls in data set, NAs or Nulls ignored.")
@@ -84,23 +102,23 @@ glm_pois <- function(data,
   X <- model.matrix(formula, data=par)
   betas <- matrix(0, nrow=ncol(X), ncol=1)
 
-  if(is.null(offset.n)){
+  if(is.null(offsetparm)){
     offset <- 0
   } else{
-    offset <- log(data[[offset.n]])
+    offset <- log(data[[offsetparm]])
   }
 
   #IWLS algorithm model fit
   ##########################
   maxrep <- 1000
-  i=1
+  i <- 1
   repeat{
     eta <- offset + X %*% betas
-    pred.means <- exp(eta)
-    print(pred.means)
+    eta.lin <- X %*% betas
+    pred.means <- exp(pmin(eta, 700))
     tXW <- t(X * as.vector(pred.means))
     tXWX <- tXW %*% X
-    z <- (eta)+(y-pred.means)/pred.means
+    z <- (eta.lin)+(y-pred.means)/pred.means
     tXWz <- tXW %*% z
     betas.new <- solve(tXWX, tXWz)
     ss <- sum((betas.new-betas)**2)

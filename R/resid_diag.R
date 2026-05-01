@@ -1,6 +1,55 @@
+#' Residual Diagnostics for Count Regression models
+#'
+#' \code{resdi_diag} is used to generate standardized pearson residuals and randomized
+#' quantile residuals for evaluation and diagnostics of models in \code{\link{countmods}}.
+#'
+#' @param mod Models of classes built by \code{\link{countmods}}
+#'
+#' @details
+#' \code{resid_diag} utilizes randomized quantile residuals to test for
+#' goodness-of-fit and dispersion of residuals. The following algorithm is used to
+#' generate randomized quantile residuals.
+#' \deqn{a_i=P(Y_i=y_i-1)}
+#' \deqn{b_i=P(Y_i=y_i)}
+#' \deqn{u_i=\mathrm{random uniform}(a_i,b_i)}
+#' \deqn{e_i=\Phi(u_i)}
+#' Where \eqn{\Phi} denotes the CDF of the normal distribution.
+#'
+#' In addition, standardized pearson residuals are computed for models in the
+#' poisson family (\code{\link{glm_pois}}, \code{\link{glm_pois_zero}}, \code{\link{glm_pois_GP2}}).
+#' Standardized pearson residuals provide another metric for determining dispersion and validation
+#' of model choice.
+#'
+#' @author
+#' Implementation of \code{resid_diag} was authored by Jeremy Artiga, with aid
+#' from William Cipolli at Colgate University.
+#'
+#' @references
+#' Long, J. S. (1997).
+#' Regression Models for Categorical and Limited Dependent Variables.
+#' Sage Publications.
+#'
+#' Deb, P., & Trivedi, P. K. (1997).
+#' Demand for medical care by the elderly: A finite mixture approach.
+#' Journal of Applied Econometrics, 12(3), 313--336.
+#'
+#' @examples
+#' ## Example using biochemists dataset from pscl (Campbell & Mahon, 1974)
+#' utils::data(bioChemists, package = "pscl")
+#' mod <- glm_pois(data=bioChemists, kid5~phd)
+#'
+#' resid_diag(mod)
+#'
+#' ## Example using NMES1988 dataset from AER (Deb & Trivedi, 1997)
+#' utils::data(NMES1988, package = "AER")
+#' mod2 <- glm_negb_zero(data=NMES1988, visits~factor(health), visits~factor(health))
+#'
+#' resid_diag(mod2)
+#'
 #' @importFrom stats runif qnorm ppois pnbinom
 #' @importFrom ggplot2 ggplot geom_smooth geom_point geom_hline theme_bw labs stat_qq stat_qq_line ggtitle
 #' @importFrom VGAM pgenpois2 dgenpois2
+#' @export
 
 resid_diag <- function(mod){
   require(patchwork)
